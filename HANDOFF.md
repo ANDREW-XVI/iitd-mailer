@@ -97,7 +97,7 @@ iitd-mailer/
 ├── deploy/push_to_server.sh   run on the Mac: rsync to server + run setup.sh
 ├── deploy/check_smtp.py   tests whether a host's SMTP ports 465/587/25 are reachable
 ├── DEPLOY.md              step-by-step Oracle guide for the owner
-├── README.txt             short user guide
+├── README.md              overview and quick start
 ├── HANDOFF.md             this file
 ├── attachments/           optional: drop attachment files here (fee-notice.txt is a sample)
 ├── sample.csv, test_15_mails.csv, test_batch_B_10_mails.csv   example lists
