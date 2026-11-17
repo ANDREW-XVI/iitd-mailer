@@ -1,0 +1,39 @@
+# ---- Your private data: NEVER commit these ----
+# Everything the app creates while you use it: saved mail password
+# (secret.json), session key, your lists/CSVs, sent copies, uploaded CV.
+data/
+sent_log.csv
+
+# Personal notes for new chats (has your name, account, status)
+HANDOFF.private.md
+
+# Your own test lists (they contain your real address)
+test_*.csv
+
+# Anything that might hold keys or passwords
+*.key
+*.pem
+.env
+.env.*
+secret*.json
+secret_key
+
+# Old copies made before each change (git history replaces these)
+backup-before-*/
+
+# Files you drop in to attach to emails
+attachments/*
+!attachments/fee-notice.txt
+
+# Logs the app and monitor create
+app-background.log
+*.log
+
+# Python / editor / macOS clutter
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.vscode/
+.idea/

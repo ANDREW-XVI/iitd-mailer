@@ -1,0 +1,10 @@
+Email,Name,Roll No,Department,Subject,Body,CC,Attachments,Amount Due,Deadline
+aarav@example.com,Aarav Sharma,2023CS10123,Computer Science,"Hostel fee reminder – {Roll No}","Dear {Name},
+
+This is a reminder that ₹{Amount Due} is pending against roll number {Roll No}.
+Please clear it before {Deadline}.
+
+Regards,
+Hostel Office",,fee-notice.txt,4500,5 Nov
+diya@example.com,Diya Verma,2023EE10456,Electrical Engineering,Invitation: Tech Talk for {Department},"<p>Hi <b>{Name}</b>,</p><p>You're invited to the Tech Talk on <b>{Deadline}</b>.</p><ul><li>Venue: LHC 108</li><li>Time: 5 PM</li></ul><p>See you there!</p>",mentor@example.com,,0,12 Nov
+kabir@example.com,Kabir Rao,2022ME10789,Mechanical Engineering,Lab slot confirmation,"Hi {Name},\n\nYour lab slot for {Department} is confirmed.\nBring your ID card.\n\nThanks",,,0,8 Nov
