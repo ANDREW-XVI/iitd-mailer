@@ -1,4 +1,5 @@
 #!/bin/sh
+# IITD Mailer, made by Ayush Vishwakarma. Installs what it needs and starts the app.
 cd "$(dirname "$0")"
 python3 -m pip install -q -r requirements.txt 2>/dev/null || python3 -m pip install -q --user -r requirements.txt
 # On a Mac, keep it awake while the app runs, so sending (and SSH) keeps working when you step away.

@@ -3,6 +3,8 @@
 IITD Mailer - send personalised emails from a CSV through your IIT Delhi
 (or Gmail) account, with a per-hour limit and automatic pause-and-retry.
 
+Made by Ayush Vishwakarma.
+
 On your laptop:
     pip install -r requirements.txt
     python app.py                -> opens http://127.0.0.1:8765
@@ -1142,12 +1144,12 @@ def restore_job():
 
 # ---------------------------------------------------------------- login (on a server)
 LOGIN_HTML = """<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>IITD Mailer: sign in</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>IITD Mailer: sign in · Ayush Vishwakarma</title><meta name="author" content="Ayush Vishwakarma">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/static/app.css"></head><body class="login-body">
 <form class="login" method="post" action="/login"><div class="brand"><span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 8v16h22V8l-11 9z"/></svg></span>
 <div><b>IITD Mailer</b><span>This mailer is private</span></div></div>
 <h1>Sign in</h1><label>App password<input name="password" type="password" autofocus autocomplete="current-password"></label>
-{error}<button class="btn primary" type="submit">Sign in</button></form>
+{error}<button class="btn primary" type="submit">Sign in</button><p class="credit">Made by <b>Ayush Vishwakarma</b></p></form>
 <script>try{{const t=localStorage.getItem('iitdmailer:theme');if(t)document.documentElement.dataset.theme=t}}catch(e){{}}</script>
 </body></html>"""
 
@@ -1776,14 +1778,14 @@ if __name__ == "__main__":
         sys.exit("Refusing to listen on the network without MAILER_LOGIN_PASSWORD.")
     url = f"http://127.0.0.1:{port}"
     if SERVER_MODE:
-        print(f"IITD Mailer (server mode) on {host}:{port}, data in {DATA}")
+        print(f"IITD Mailer by Ayush Vishwakarma (server mode) on {host}:{port}, data in {DATA}")
         try:
             from waitress import serve
             serve(app, host=host, port=port, threads=8)
         except ImportError:
             app.run(host=host, port=port, threaded=True)
     else:
-        print(f"\n  IITD Mailer is running at {url}\n  Keep this window open while sending. Press Ctrl+C to quit.\n")
+        print(f"\n  IITD Mailer by Ayush Vishwakarma is running at {url}\n  Keep this window open while sending. Press Ctrl+C to quit.\n")
         if not os.environ.get("NO_BROWSER"):
             threading.Timer(1.2, lambda: webbrowser.open(url)).start()
         app.run(host=host, port=port, debug=False, threaded=True)

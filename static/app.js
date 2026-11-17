@@ -1,4 +1,4 @@
-/* IITD Mailer front end. No framework: one state object, render functions per screen. */
+/* IITD Mailer front end, made by Ayush Vishwakarma. No framework: one state object, render functions per screen. */
 "use strict";
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];

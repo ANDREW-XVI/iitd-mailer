@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# IITD Mailer, made by Ayush Vishwakarma.
 # Installs or updates IITD Mailer on an Ubuntu server (made for Oracle Cloud "Always Free").
 # Run on the server, from the folder you copied:   sudo bash ~/iitd-mailer/deploy/setup.sh
 # Safe to run again after copying a newer version: your lists, log and settings are kept.

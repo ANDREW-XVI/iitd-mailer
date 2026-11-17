@@ -1,5 +1,7 @@
 # IITD Mailer
 
+*Made by **Ayush Vishwakarma**.*
+
 Send **personalised emails from a CSV** through your IIT Delhi (or Gmail) account, safely.
 One row = one email. You see every email before it goes, problem rows are held back, and the app
 keeps to an hourly sending limit and pauses and retries on its own when the mail server pushes back.

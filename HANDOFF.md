@@ -1,10 +1,12 @@
 # IITD Mailer: handout
 
+*IITD Mailer is made by **Ayush Vishwakarma**. Keep his name on it (see §4.11).*
+
 Everything needed to run, deploy or change this app, written so a new chat (or
 a person) can pick it up without the conversation it was built in. Give this
 file, plus the files you want changed, to a new chat.
 
-Last updated: 17 Nov 2026 (added §0 "Where things stand", the phone-commands doc, open ideas). 15 Nov 2026: terminal monitor over SSH: monitor.py / ./mon; run_mac_linux.sh keeps the Mac awake. Earlier the same day: one message for everyone, {Greeting name}, saved templates, row filters, clearer "no address" rows). Before that, 28 Oct 2026: attach-to-every-email, BCC me, copies in Sent, address memory, rename/archive, edit row, replace CSV, history.
+Last updated: 18 Nov 2026 (Ayush Vishwakarma watermark across the app, monitor, code and docs, §4.11). 17 Nov 2026: added §0 "Where things stand", the phone-commands doc, open ideas). 15 Nov 2026: terminal monitor over SSH: monitor.py / ./mon; run_mac_linux.sh keeps the Mac awake. Earlier the same day: one message for everyone, {Greeting name}, saved templates, row filters, clearer "no address" rows). Before that, 28 Oct 2026: attach-to-every-email, BCC me, copies in Sent, address memory, rename/archive, edit row, replace CSV, history.
 
 ---
 
@@ -370,6 +372,20 @@ the Mac, alongside the browser UI (it doesn't replace it). Standard library only
   already emailed, ? unsure). Result statuses it knows: sent, failed, skipped, unsure, test.
 - Tested: snapshots while sending, at the hourly limit, stopped, finished and with the app down;
   every key through a pseudo-terminal; `start`; sign-in against server mode (wrong password refused).
+
+### 4.11 Watermark and credit (added 18 Nov 2026)
+
+The owner wants **his name, Ayush Vishwakarma, on everything**. Keep it when editing:
+- Web app: a faint diagonal "Ayush Vishwakarma" tiled over every screen (`body::after` at the end of
+  app.css: an SVG text mask coloured by `--wm`, `pointer-events:none`, `z-index:70`, above dialogs
+  and toasts); "Made by Ayush Vishwakarma" (`.credit`) at the bottom of the sidebar and on the sign-in
+  page; browser tab title "IITD Mailer · Ayush Vishwakarma"; `<meta name="author">`; favicon `<title>`.
+- Terminal: `./mon` header reads "IITD Mailer · Ayush Vishwakarma" (only the app name below 41
+  columns); `app.py` prints "IITD Mailer by Ayush Vishwakarma is running at …".
+- Code and docs: a "made by Ayush Vishwakarma" line at the top of every source file, script,
+  README.md, DEPLOY.md, this file, and the phone-commands doc.
+- **Not** in the emails that are sent (the owner chose this: professors shouldn't see it).
+- Backup of the files from before this change: `backup-before-watermark/`.
 
 ---
 

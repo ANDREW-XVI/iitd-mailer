@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Checks whether this machine can reach a mail server's SMTP ports (default: smtp.iitd.ac.in).
+"""IITD Mailer, made by Ayush Vishwakarma.
+   Checks whether this machine can reach a mail server's SMTP ports (default: smtp.iitd.ac.in).
    python3 deploy/check_smtp.py [host]"""
 import smtplib
 import socket

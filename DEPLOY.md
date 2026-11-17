@@ -1,5 +1,7 @@
 # Running IITD Mailer on a free Oracle Cloud server
 
+*IITD Mailer is made by **Ayush Vishwakarma**.*
+
 This puts the mailer on a small Linux server that stays on, so a long send
 carries on when your laptop is closed. You open it at an https:// address
 and sign in with an app password. About 30 minutes, once.

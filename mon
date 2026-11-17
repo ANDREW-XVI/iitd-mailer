@@ -1,3 +1,4 @@
 #!/bin/sh
+# IITD Mailer, made by Ayush Vishwakarma.
 # Shortcut for the terminal monitor:  ./mon   ./mon status   ./mon log   ./mon stop|resume|retry|start
 cd "$(dirname "$0")" && exec python3 monitor.py "$@"

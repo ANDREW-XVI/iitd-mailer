@@ -1,4 +1,4 @@
-/* IITD Mailer - true-black flat style, with a light theme.
+/* IITD Mailer, made by Ayush Vishwakarma - true-black flat style, with a light theme.
    Grid arithmetic (1440 wide): sidebar 232 + canvas 1208 = 1440.
    Canvas gutter 32 each side -> content 1144. Work row: list 1fr + gap 16 + preview 1fr
    -> (1144 - 16) / 2 = 564 each. Strip, allowance and work row all span 1144, so every
@@ -560,3 +560,16 @@ th.n,td.n{width:46px}
   .frow select{flex:1 1 0;min-width:0;max-width:none}
   .frow .faint{white-space:nowrap}
 }
+
+/* Watermark: "Ayush Vishwakarma" tiled diagonally across every screen (also the sign-in page and prints).
+   The text is an SVG mask, so its colour comes from --wm and follows the theme. pointer-events:none keeps
+   everything clickable; the tint is faint enough that every text pair still passes 4.5:1. */
+:root{--wm:rgba(255,255,255,.05)}
+:root[data-theme="light"]{--wm:rgba(26,24,20,.055)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:70;background:var(--wm);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='220'%3E%3Ctext x='170' y='116' transform='rotate(-24 170 110)' text-anchor='middle' font-family='Inter,Helvetica,Arial,sans-serif' font-size='17' font-weight='600' letter-spacing='.4'%3EAyush Vishwakarma%3C/text%3E%3C/svg%3E") 0 0/340px 220px repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='220'%3E%3Ctext x='170' y='116' transform='rotate(-24 170 110)' text-anchor='middle' font-family='Inter,Helvetica,Arial,sans-serif' font-size='17' font-weight='600' letter-spacing='.4'%3EAyush Vishwakarma%3C/text%3E%3C/svg%3E") 0 0/340px 220px repeat}
+@media print{body::after{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.credit{font-size:12px;color:var(--faint);padding:0 10px}
+.credit b{font-weight:500;color:var(--muted)}
+.login .credit{text-align:center;padding:0;margin-top:4px}

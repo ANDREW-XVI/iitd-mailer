@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IITD Mailer: terminal monitor. Watch and control sending from any terminal,
+IITD Mailer: terminal monitor, made by Ayush Vishwakarma. Watch and control sending from any terminal,
 for example over SSH from your phone. The browser app keeps running as usual;
 this only talks to it (or reads its files if it isn't running).
 
@@ -186,7 +186,7 @@ def render(snap, note=""):
     lines = []
     now = datetime.now().strftime("%H:%M:%S")
     acc = snap["account"].get("from_email") or "no account"
-    head = f"{bold('IITD Mailer')}  {dim(now)}"
+    head = f"{bold('IITD Mailer')} {dim('· Ayush Vishwakarma')}  {dim(now)}" if w >= 41 else f"{bold('IITD Mailer')}  {dim(now)}"
     lines += [head, dim(cut(acc, w)), dim("─" * w)]
 
     if not snap["up"]:
