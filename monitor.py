@@ -37,7 +37,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("MAILER_DATA", HERE / "data"))
 LOG_FILE = Path(os.environ.get("MAILER_LOG", HERE / "sent_log.csv"))
-REFRESH = 5.0
+REFRESH = 1.0
 
 # ---------------------------------------------------------------- look
 COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR") and "--no-color" not in sys.argv

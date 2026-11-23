@@ -456,6 +456,11 @@ Earlier checks (in a Linux sandbox):
 - The owner sends from an IITD account, tests to their own Gmail, and
   prefers being shown design options before a redesign.
 
+- **Certificates** (23 Nov 2026): Python from python.org on a Mac has no trusted certificates, so a
+  friend's laptop failed with CERTIFICATE_VERIFY_FAILED ("self-signed certificate in certificate chain")
+  and the "Install Certificates.command" fix didn't work. `ssl_context()` in app.py now loads certifi
+  (in requirements.txt) and, on a Mac, the system root certificates from the keychain via `security`;
+  every SMTP/IMAP connection uses it. Tested on the owner's Mac with the certificate store disabled.
 ---
 
 ## 7. Common changes, and where to make them

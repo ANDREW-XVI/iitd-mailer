@@ -682,9 +682,46 @@ def render(meta, idx, build=False, test_to=None, files=None):
 
 
 # ---------------------------------------------------------------- SMTP
+_CA_EXTRA = None
+
+
+def ssl_context():
+    """A TLS context that trusts the usual certificate authorities even when this Python has none.
+    Python from python.org on a Mac ships without them (its "Install Certificates" step often fails),
+    which shows up as CERTIFICATE_VERIFY_FAILED. So we also load certifi's list when it's installed and,
+    on a Mac, the system's own root certificates. Adding them is harmless where Python already works."""
+    global _CA_EXTRA
+    ctx = ssl.create_default_context()
+    if _CA_EXTRA is None:
+        extra = []
+        try:
+            import certifi
+            extra.append(Path(certifi.where()).read_text())
+        except Exception:
+            pass
+        if sys.platform == "darwin":
+            import subprocess
+            for kc in ("/System/Library/Keychains/SystemRootCertificates.keychain",
+                       "/Library/Keychains/System.keychain"):
+                try:
+                    out = subprocess.run(["/usr/bin/security", "find-certificate", "-a", "-p", kc],
+                                         capture_output=True, text=True, timeout=20).stdout
+                    if "BEGIN CERTIFICATE" in out:
+                        extra.append(out)
+                except Exception:
+                    pass
+        _CA_EXTRA = extra
+    for pem in _CA_EXTRA:
+        try:
+            ctx.load_verify_locations(cadata=pem)
+        except Exception:
+            pass
+    return ctx
+
+
 def connect(acc):
     host, port = acc["host"], int(acc["port"])
-    ctx = ssl.create_default_context()
+    ctx = ssl_context()
     if port == 465:
         s = smtplib.SMTP_SSL(host, port, context=ctx, timeout=30)
     else:
@@ -703,6 +740,9 @@ def friendly(e):
         return "Login rejected: check your username and password. (Gmail needs an App Password.)"
     if isinstance(e, socket.gaierror):
         return "Couldn't find that mail server. Check the server name and the internet connection."
+    if isinstance(e, ssl.SSLCertVerificationError):
+        return ("This computer's Python can't check the mail server's certificate (CERTIFICATE_VERIFY_FAILED). "
+                "Run: python3 -m pip install --upgrade certifi, then restart the app.")
     if isinstance(e, ssl.SSLError):
         return f"Secure connection failed ({e.reason or e}). If you use port 465 try 587, or the other way round."
     if isinstance(e, (TimeoutError, socket.timeout)):
@@ -756,9 +796,9 @@ def imap_connect(acc):
     if not host:
         raise ValueError("Enter the server for your Sent folder (IMAP).")
     try:
-        m = imaplib.IMAP4_SSL(host, port, ssl_context=ssl.create_default_context(), timeout=30)
+        m = imaplib.IMAP4_SSL(host, port, ssl_context=ssl_context(), timeout=30)
     except TypeError:   # Python 3.8 has no timeout argument
-        m = imaplib.IMAP4_SSL(host, port, ssl_context=ssl.create_default_context())
+        m = imaplib.IMAP4_SSL(host, port, ssl_context=ssl_context())
     m.login(acc["username"], acc["password"])
     return m
 
