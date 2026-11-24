@@ -364,15 +364,18 @@ def render_sys(d, w):
         w_now = b.get("watts") or 0
         parts = []
         if not b["plugged"]:
+            # two estimates: macOS's own (averaged over recent use, as in the menu bar) and one from
+            # the charge left divided by what the battery is supplying right now
+            now_h = b["mah"] / -b["ma"] if b.get("mah") and b.get("ma", 0) < -20 else None
             if b.get("left"):
-                parts.append(bold(b["left"] + " left"))
-            if w_now >= 0.3:
+                parts.append(bold(b["left"] + " left") + dim(" (macOS)"))
+            if now_h:
+                est = f"≈{now_h:.0f} h" if now_h >= 10 else f"≈{now_h:.1f} h"
+                parts.append((est if b.get("left") else bold(est + " left")) + f" at {w_now:.1f} W")
+            elif w_now >= 0.3:
                 parts.append(f"using {w_now:.1f} W")
-            if not b.get("left"):
-                if b.get("mah") and b.get("ma", 0) < -20:
-                    parts.append(bold(f"≈{hm(b['mah'] / -b['ma'])} left") + dim(" at this rate"))
-                else:
-                    parts.append(dim("working out time left…"))
+            if not parts:
+                parts.append(dim("working out time left…"))
         else:
             if b["charging"] and b.get("left"):
                 parts.append(bold(b["left"] + " to full"))

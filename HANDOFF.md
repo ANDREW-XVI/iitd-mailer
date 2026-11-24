@@ -371,7 +371,7 @@ the Mac, alongside the browser UI (it doesn't replace it). Standard library only
   the reason, hourly allowance bar, last 6 results (✓ sent, ✗ failed + reason, – skipped as
   already emailed, ? unsure). Result statuses it knows: sent, failed, skipped, unsure, test.
 - **This Mac** (added 24 Nov 2026): the live view also shows the computer's battery (%, macOS's own
-  "time left" from `pmset -g batt`, else mAh ÷ current draw from `ioreg -a -r -n AppleSmartBattery`), watts in
+  "time left" from `pmset -g batt`, shown beside its own ≈hours = mAh ÷ current draw from `ioreg -a -r -n AppleSmartBattery`), watts in
   or out, health (capacity vs new, cycles), CPU % and the top 3 energy users (`top -l 2 -o power`), memory and
   pressure, the mailer's own CPU/RAM, whether `caffeinate` keeps it awake, uptime and free disk.
   `collect_sys()` runs in a background thread (`SysStats`) every `SYS_EVERY` = 15 s, so `REFRESH` (owner set
