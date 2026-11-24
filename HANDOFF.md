@@ -93,7 +93,7 @@ iitd-mailer/
 ├── requirements.txt       flask>=2.2, waitress>=2.1
 ├── run_mac_linux.sh       installs requirements, runs app.py (under `caffeinate -i` on a Mac, so it doesn't sleep)
 ├── monitor.py             terminal monitor/controller (stdlib only), see §4.10
-├── mon                    shortcut: `./mon [status|log N|stop|resume|retry|start]`
+├── mon                    shortcut: `./mon [status|mac|log N|stop|resume|retry|start]`
 ├── run_windows.bat        same for Windows
 ├── deploy/setup.sh        server install/update (Ubuntu): venv, systemd, Caddy, firewall, checks
 ├── deploy/push_to_server.sh   run on the Mac: rsync to server + run setup.sh
@@ -370,6 +370,14 @@ the Mac, alongside the browser UI (it doesn't replace it). Standard library only
   ✓ Finished), "x of y sent · failed · skipped · left", progress bar, next email or pause-until with
   the reason, hourly allowance bar, last 6 results (✓ sent, ✗ failed + reason, – skipped as
   already emailed, ? unsure). Result statuses it knows: sent, failed, skipped, unsure, test.
+- **This Mac** (added 24 Nov 2026): the live view also shows the computer's battery (%, macOS's own
+  "time left" from `pmset -g batt`, else mAh ÷ current draw from `ioreg -a -r -n AppleSmartBattery`), watts in
+  or out, health (capacity vs new, cycles), CPU % and the top 3 energy users (`top -l 2 -o power`), memory and
+  pressure, the mailer's own CPU/RAM, whether `caffeinate` keeps it awake, uptime and free disk.
+  `collect_sys()` runs in a background thread (`SysStats`) every `SYS_EVERY` = 15 s, so `REFRESH` (owner set
+  1 s) stays fast; no sudo needed. Key `m` hides/shows it; `./mon mac` prints it once; `status` includes it.
+  Sleep settings (from `pmset -g`, no sudo): `SleepDisabled` (the owner runs `sudo pmset -a disablesleep 1 lowpowermode 1 displaysleep 1` before closing the lid), low power mode, display sleep, and lid open/closed (`AppleClamshellState` in ioreg). Sleep line: green "off" when sleep is disabled; red warning if only caffeinate keeps it awake (closing the lid would still sleep it); red "plug in" at ≤15% with sleep off.
+  Lines wrap to the terminal width (`LL()`); on Linux only load, memory, disk (and battery from /sys).
 - Tested: snapshots while sending, at the hourly limit, stopped, finished and with the app down;
   every key through a pseudo-terminal; `start`; sign-in against server mode (wrong password refused).
 

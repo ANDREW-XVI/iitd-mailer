@@ -11,8 +11,9 @@ this only talks to it (or reads its files if it isn't running).
     python3 monitor.py resume     resume a stopped or paused send
     python3 monitor.py retry      skip a pause and try again now
     python3 monitor.py start      start the app in the background (keeps the Mac awake while it runs)
+    python3 monitor.py mac        this Mac once: battery, time left, power draw, CPU, memory, energy use
 
-Live view keys:  s stop   r resume   t try now   l log   q quit
+Live view keys:  s stop   r resume   t try now   l log   m Mac stats on/off   q quit
 
 Options: --url http://host:port (default http://127.0.0.1:8765), --no-color.
 On a server with a sign-in password, set MAILER_LOGIN_PASSWORD or you'll be asked for it.
@@ -21,12 +22,15 @@ Only uses Python's standard library.
 import csv
 import getpass
 import json
+import plistlib
+import re
 import os
 import select
 import shutil
 import subprocess
 import sys
 import textwrap
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -180,8 +184,277 @@ def snapshot(app):
                           "times": times, "now": time.time()}}
 
 
+# ---------------------------------------------------------------- this Mac: battery, power, CPU, memory
+SYS_EVERY = 15.0      # seconds between measurements (top needs ~2 s to measure energy use)
+
+
+def _run(cmd, timeout=10):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout).stdout
+    except Exception:
+        return ""
+
+
+def _signed(n):
+    n = int(n or 0)
+    return n - 2 ** 64 if n >= 2 ** 63 else n
+
+
+def collect_sys():
+    """One measurement of this computer. Every part is optional: whatever can't be read is left out."""
+    d = {"time": time.time(), "mac": sys.platform == "darwin"}
+    if d["mac"]:
+        # battery: ioreg (raw numbers) + pmset (macOS's own time estimate, as in the menu bar)
+        try:
+            b = plistlib.loads(_run(["ioreg", "-a", "-r", "-n", "AppleSmartBattery"]).encode())[0]
+            bd = b.get("BatteryData") or {}
+            amps = _signed(b.get("InstantAmperage", b.get("Amperage", 0)))         # mA, minus = draining
+            volts = (b.get("Voltage") or 0) / 1000
+            d["batt"] = {
+                "pct": b.get("CurrentCapacity"), "charging": bool(b.get("IsCharging")),
+                "plugged": bool(b.get("ExternalConnected")), "full": bool(b.get("FullyCharged")),
+                "watts": abs(volts * amps / 1000), "ma": amps,
+                "mah": b.get("AppleRawCurrentCapacity") or bd.get("RemainingCapacity"),
+                "max_mah": b.get("AppleRawMaxCapacity") or bd.get("FullChargeCapacity"),
+                "design": b.get("DesignCapacity") or bd.get("DesignCapacity"),
+                "cycles": b.get("CycleCount"),
+                "temp": (b.get("Temperature") or 0) / 100 or None,
+                "system_w": ((b.get("PowerTelemetryData") or {}).get("SystemLoad") or 0) / 1000 or None,
+                "adapter_w": (b.get("AdapterDetails") or {}).get("Watts"),
+            }
+        except Exception:
+            pass
+        pm = _run(["pmset", "-g", "batt"])
+        m = re.search(r"(\d+:\d\d) remaining", pm)
+        if "batt" in d:
+            d["batt"]["left"] = m.group(1) if m and m.group(1) != "0:00" else None
+            d["batt"]["state"] = next((s for s in ("AC attached; not charging", "finishing charge", "charged",
+                                                   "discharging", "charging") if s in pm), "")
+        # CPU and the apps using the most energy: two top samples 1 s apart (the second is the real one)
+        top = _run(["top", "-l", "2", "-s", "1", "-n", "6", "-o", "power", "-stats", "pid,command,cpu,power"], 20)
+        part = top.split("Processes:")[-1] if top else ""
+        m = re.search(r"CPU usage: ([\d.]+)% user, ([\d.]+)% sys", part)
+        if m:
+            d["cpu"] = float(m.group(1)) + float(m.group(2))
+        m = re.search(r"PhysMem: (\S+) used", part)
+        d["mem_used"] = m.group(1) if m else None
+        procs = []
+        for line in part.split("PID", 1)[-1].splitlines()[1:]:
+            m = re.match(r"\s*(\d+)\s+(.+?)\s+([\d.]+)\s+([\d.]+)\s*$", line)
+            if m and m.group(2).strip() != "top":
+                procs.append((m.group(2).strip(), float(m.group(4))))
+        d["energy"] = procs[:3]
+        d["mem_total"] = int(_run(["sysctl", "-n", "hw.memsize"]).strip() or 0)
+        lvl = _run(["sysctl", "-n", "kern.memorystatus_vm_pressure_level"]).strip()
+        d["pressure"] = {"1": "normal", "2": "high", "4": "critical"}.get(lvl, "")
+        m = re.search(r"CPU_Speed_Limit\s*=\s*(\d+)", _run(["pmset", "-g", "therm"]))
+        d["speed_limit"] = int(m.group(1)) if m else None
+        d["awake"] = "caffeinate" in _run(["pmset", "-g", "assertions"])
+        # sleep settings, e.g. after: sudo pmset -a disablesleep 1 lowpowermode 1 displaysleep 1
+        pg = _run(["pmset", "-g"])
+        num = lambda key: (lambda m: int(m.group(1)) if m else None)(re.search(r"^\s*" + key + r"\s+(\d+)", pg, re.M))
+        d["sleep_disabled"] = num("SleepDisabled") == 1
+        d["low_power"] = num("lowpowermode")
+        d["display_sleep"] = num("displaysleep")
+        lid = re.search(r'"AppleClamshellState" = (Yes|No)', _run(["ioreg", "-r", "-k", "AppleClamshellState", "-d", "4"]))
+        d["lid_closed"] = (lid.group(1) == "Yes") if lid else None
+        m = re.search(r"sec = (\d+)", _run(["sysctl", "-n", "kern.boottime"]))
+        d["boot"] = int(m.group(1)) if m else None
+    else:
+        # Linux and others: the basics only
+        try:
+            mi = dict(l.split(":", 1) for l in open("/proc/meminfo"))
+            tot, avail = int(mi["MemTotal"].split()[0]) * 1024, int(mi["MemAvailable"].split()[0]) * 1024
+            d["mem_total"], d["mem_used_b"] = tot, tot - avail
+        except Exception:
+            pass
+        for bdir in sorted(Path("/sys/class/power_supply").glob("BAT*")):
+            try:
+                rd = lambda n: (bdir / n).read_text().strip()
+                st = rd("status")
+                d["batt"] = {"pct": int(rd("capacity")), "charging": st == "Charging",
+                             "plugged": st != "Discharging", "full": st == "Full", "state": st.lower()}
+                if (bdir / "power_now").exists():
+                    d["batt"]["watts"] = int(rd("power_now")) / 1e6
+            except Exception:
+                pass
+            break
+    try:
+        d["load"] = os.getloadavg()[0]
+    except Exception:
+        pass
+    d["cores"] = os.cpu_count()
+    try:
+        d["disk_free"] = shutil.disk_usage(str(HERE)).free
+    except Exception:
+        pass
+    # the mailer itself
+    for line in _run(["ps", "-axo", "pid=,pcpu=,rss=,command="]).splitlines():
+        if "app.py" in line and "python" in line.lower() and "monitor.py" not in line:
+            parts = line.split(None, 3)
+            try:
+                d["app"] = {"cpu": float(parts[1]), "mb": int(parts[2]) / 1024}
+            except Exception:
+                pass
+            break
+    return d
+
+
+class SysStats:
+    """Measures in a background thread, so the live view never waits for it."""
+    def __init__(self):
+        self.data = None
+        self._t = None
+
+    def _loop(self):
+        while True:
+            try:
+                self.data = collect_sys()
+            except Exception:
+                pass
+            time.sleep(SYS_EVERY)
+
+    def get(self):
+        if self._t is None:
+            self._t = threading.Thread(target=self._loop, daemon=True)
+            self._t.start()
+        return self.data
+
+
+ANSI = re.compile(r"\033\[[0-9;]*m")
+
+
+def vis(s):
+    return len(ANSI.sub("", s))
+
+
+def hm(hours):
+    return f"{int(hours)}:{int(round(hours % 1 * 60)) % 60:02d}" if hours < 99 else "99+ h"
+
+
+def render_sys(d, w):
+    title = "This Mac" if (d or {}).get("mac", sys.platform == "darwin") else "This computer"
+    lines = [bold(title) + (dim(f"  measured {clock(d['time'])[:5]}, every {SYS_EVERY:g}s") if d and w >= 44 else "")]
+    if not d:
+        return lines + [dim("  Measuring…")]
+    L = lambda label, text: lines.append(f"  {dim(f'{label:<8}')} {text}")
+    room = w - 11
+
+    def LL(label, items, sep=" · ", most=None):
+        """Items on as few lines as fit the width; with most=N, stop after N lines."""
+        row, n = [], 0
+        for it in items:
+            if row and vis(sep.join(row + [it])) > room:
+                L(label if n == 0 else "", sep.join(row))
+                row, n = [], n + 1
+                if most and n >= most:
+                    return
+            row.append(it)
+        if row:
+            L(label if n == 0 else "", sep.join(row))
+
+    b = d.get("batt")
+    if b and b.get("pct") is not None:
+        pct = b["pct"]
+        col = red if pct < 20 and not b["plugged"] else yellow if pct < 40 and not b["plugged"] else green
+        st = b.get("state", "")
+        where = ("charged" if b["full"] or st == "charged" else "charging" if b["charging"]
+                 else "plugged in, not charging" if b["plugged"] else "on battery")
+        L("Battery", col(f"{pct}%") + " " + bar(pct / 100, 10, col) + " " + cut(where, room - 16))
+        w_now = b.get("watts") or 0
+        parts = []
+        if not b["plugged"]:
+            if b.get("left"):
+                parts.append(bold(b["left"] + " left"))
+            if w_now >= 0.3:
+                parts.append(f"using {w_now:.1f} W")
+            if not b.get("left"):
+                if b.get("mah") and b.get("ma", 0) < -20:
+                    parts.append(bold(f"≈{hm(b['mah'] / -b['ma'])} left") + dim(" at this rate"))
+                else:
+                    parts.append(dim("working out time left…"))
+        else:
+            if b["charging"] and b.get("left"):
+                parts.append(bold(b["left"] + " to full"))
+            if b["charging"] and w_now >= 0.3:
+                parts.append(f"+{w_now:.1f} W in")
+            if b.get("system_w"):
+                parts.append(f"Mac using {b['system_w']:.1f} W")
+            if b.get("adapter_w"):
+                parts.append(dim(f"{b['adapter_w']} W adapter"))
+        if parts:
+            LL("", parts)
+        health = []
+        if b.get("max_mah") and b.get("design"):
+            health.append(f"{round(100 * b['max_mah'] / b['design'])}% of new")
+        if b.get("cycles"):
+            health.append(f"{b['cycles']} cycles")
+        if b.get("temp"):
+            health.append(f"{b['temp']:.0f}°C")
+        if health:
+            LL("Health", [dim(h) for h in health])
+    elif d.get("mac"):
+        L("Power", "no battery (desktop Mac)")
+
+    if d.get("cpu") is not None or d.get("load") is not None:
+        cpu = d.get("cpu")
+        txt = ((yellow if cpu > 80 else str)(f"{cpu:.0f}%")) if cpu is not None else ""
+        if d.get("load") is not None:
+            txt += (" · " if txt else "") + dim(f"load {d['load']:.1f}, {d.get('cores')} cores")
+        if d.get("speed_limit") and d["speed_limit"] < 100:
+            txt += " · " + yellow(f"slowed to {d['speed_limit']}% (heat)")
+        LL("CPU", [t for t in txt.split(" · ")])
+
+    if d.get("mem_total"):
+        used = d.get("mem_used")
+        if used and used[-1] in "GMK":
+            used = used[:-1] + " " + used[-1] + "B"
+        elif d.get("mem_used_b"):
+            used = f"{d['mem_used_b'] / 1024 ** 3:.1f} GB"
+        txt = f"{used or '?'} of {d['mem_total'] / 1024 ** 3:.0f} GB"
+        pr = d.get("pressure")
+        if pr:
+            txt += " · " + {"normal": dim, "high": yellow, "critical": red}[pr](f"pressure {pr}")
+        LL("Memory", txt.split(" · "))
+
+    if d.get("energy"):
+        LL("Energy", [f"{cut(n, 13)} {dim(f'{e:.0f}')}" for n, e in d["energy"]], sep=", ", most=1)
+
+    if d.get("app"):
+        L("Mailer", f"{d['app']['cpu']:.1f}% CPU · {d['app']['mb']:.0f} MB")
+    if d.get("mac"):
+        lid = {True: "lid closed", False: "lid open"}.get(d.get("lid_closed"))
+        if d.get("sleep_disabled"):
+            sl = [green("off"), dim("lid closed, still running") if d.get("lid_closed") else dim("safe to close the lid")]
+        elif d.get("awake"):
+            sl = [yellow("kept awake while open")] + [red("closing the lid will sleep it")]
+        else:
+            sl = [yellow("may sleep when idle")] + ([dim(lid)] if lid else [])
+        LL("Sleep", sl)
+        pw = []
+        if d.get("low_power") is not None:
+            pw.append("low power mode " + ("on" if d["low_power"] else "off"))
+        ds = d.get("display_sleep")
+        if ds is not None:
+            pw.append(dim("screen never sleeps") if ds == 0 else dim(f"screen off after {ds} min"))
+        if pw:
+            LL("Power", pw)
+        if d.get("sleep_disabled") and b and not b.get("plugged") and (b.get("pct") or 100) <= 15:
+            LL("", [red("battery low and sleep is off: plug in")])
+    extra = []
+    if d.get("boot"):
+        up = time.time() - d["boot"]
+        extra.append(dim(f"up {int(up // 86400)}d {int(up % 86400 // 3600)}h" if up >= 86400
+                         else f"up {int(up // 3600)}h {int(up % 3600 // 60):02d}m"))
+    if d.get("disk_free") is not None:
+        extra.append(dim(f"{d['disk_free'] / 1024 ** 3:.0f} GB free"))
+    if extra:
+        LL("Status", extra)
+    return lines
+
+
 # ---------------------------------------------------------------- the screen
-def render(snap, note=""):
+def render(snap, note="", sysd=False):
     w = width()
     lines = []
     now = datetime.now().strftime("%H:%M:%S")
@@ -267,10 +540,14 @@ def render(snap, note=""):
         if r.get("status") in ("failed", "unsure") and r.get("error"):
             lines += [red(l) for l in wrap(cut(r["error"], 160), w, "      ")]
 
+    if sysd is not False:
+        lines.append("")
+        lines += render_sys(sysd, w)
+
     lines.append(dim("─" * w))
     if note:
         lines += [yellow(l) for l in wrap(note, w, "")]
-    lines.append(dim("s stop · r resume · t try now · l log · q quit"))
+    lines.append(dim("s stop · r resume · t try now · l log · m Mac · q quit"))
     return "\n".join(lines)
 
 
@@ -339,11 +616,12 @@ def live(app):
         old = termios.tcgetattr(fd)
         tty.setcbreak(fd)
     note, confirm_stop = "", 0.0
+    stats, show_sys = SysStats(), True
     sys.stdout.write("\033[?25l")                      # hide the cursor
     try:
         while True:
             snap = snapshot(app)
-            sys.stdout.write("\033[H\033[2J" + render(snap, note) + "\n")
+            sys.stdout.write("\033[H\033[2J" + render(snap, note, stats.get() if show_sys else False) + "\n")
             sys.stdout.flush()
             note = ""
             key = ""
@@ -361,6 +639,8 @@ def live(app):
                         note, confirm_stop = act(app, "stop"), 0.0
                     else:
                         note, confirm_stop = "Press s again within 5 seconds to stop sending.", time.time()
+                elif key == "m":
+                    show_sys = not show_sys
                 elif key == "r":
                     note = act(app, "resume")
                 elif key == "t":
@@ -398,7 +678,9 @@ def main():
     elif cmd == "live":
         live(app)
     elif cmd == "status":
-        print(render(snapshot(app)).rsplit("\n", 1)[0])
+        print(render(snapshot(app), sysd=collect_sys()).rsplit("\n", 1)[0])
+    elif cmd in ("mac", "sys"):
+        print("\n".join(render_sys(collect_sys(), width())))
     elif cmd == "log":
         print_log(int(args[1]) if len(args) > 1 and args[1].isdigit() else 15)
     elif cmd in ("stop", "resume", "retry"):
